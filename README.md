@@ -5,12 +5,14 @@ A Python tool for creating animated GIF visualizations from time series CSV data
 ## Features
 
 - 📊 **Time Series Animation**: Convert CSV data to animated GIF plots
-- ⏱️ **Real Timing**: Animation speed matches actual timestamp intervals
+- ⏱️ **Real Timing**: Animation speed matches actual timestamp intervals (precise 100ms = 10 FPS)
 - 🚀 **Performance Optimized**: Multiprocessing support for faster generation
 - 🎯 **Trajectory Display**: Optional trajectory trails with configurable length
 - 🔗 **Connection Lines**: Draw lines between data points based on configuration
 - 🏷️ **Custom Labels**: Use meaningful names for data points
-- ⚙️ **Flexible Options**: Comprehensive command-line interface
+- 📋 **Flexible CSV Format**: Automatic detection of XXX_x, XXX_y coordinate pairs
+- 🔧 **Name-Based Configuration**: Use data names instead of indices in config files
+- ⚙️ **Comprehensive Options**: Full command-line interface with performance tuning
 
 ## Installation
 
@@ -40,37 +42,56 @@ python src/example.py
 ## Data Format
 
 ### CSV Data Structure
-The CSV file should have the following format:
+The CSV file should contain coordinate pairs with flexible column naming:
 ```csv
-timestamp,data0_x,data0_y,data1_x,data1_y,data2_x,data2_y,...
-1756717200000000000,0.0,0.0,1.0,0.0,2.0,0.0
-1756717200100000000,-0.1,0.0,1.0,-0.1,1.8,0.0
+timestamp,data0_x,data0_y,data1_x,data1_y,robot_x,robot_y,sensor1_x,sensor1_y,...
+1756717200000000000,0.0,0.0,1.0,0.0,2.0,0.0,3.0,1.0
+1756717200100000000,-0.1,0.0,1.0,-0.1,1.8,0.0,3.1,1.1
 ...
 ```
 
+**Requirements:**
 - **First column**: Timestamp in nanoseconds
-- **Remaining columns**: x,y coordinate pairs for each data point
-- Column naming: `dataN_x`, `dataN_y` where N is the data point index
+- **Coordinate pairs**: Any columns ending with `_x` and `_y` with matching base names
+- **Mixed data**: Other columns are ignored - only `XXX_x`, `XXX_y` pairs are processed
+- **Flexible naming**: Use meaningful names like `robot_x`, `robot_y` or `sensor1_x`, `sensor1_y`
+
+**Examples of valid coordinate pairs:**
+- `data0_x`, `data0_y` → Base name: `data0`
+- `robot_x`, `robot_y` → Base name: `robot`  
+- `sensor1_x`, `sensor1_y` → Base name: `sensor1`
 
 ### Configuration Files
 
 #### `data/label.txt` (Optional)
-Define custom labels for data points:
+Define custom display labels for data points:
+```
+data0, Robot
+robot, Main Robot
+sensor1, Temperature Sensor
+```
+**Format:** `data_name, display_label`
+
+**Backward compatibility:** Numeric indices still supported:
 ```
 0, Robot
 1, Target
-2, Obstacle
 ```
-Format: `index, label_name`
 
 #### `data/connection.txt` (Optional)
 Define lines between data points:
 ```
+data0, data1
+robot, sensor1
+data0, robot
+```
+**Format:** `data_name1, data_name2` - draws line between the two data points
+
+**Backward compatibility:** Numeric indices still supported:
+```
 0, 1
 0, 2
-1, 3
 ```
-Format: `index1, index2` - draws line from data point index1 to index2
 
 ## Usage
 
@@ -126,28 +147,30 @@ The tool includes several optimizations for faster generation:
 ## Output
 
 - **Format**: Animated GIF with optimized compression
-- **Timing**: Matches real timestamp intervals (minimum 50ms per frame)
-- **Frame Rate**: Typically 10-20 FPS depending on data intervals
+- **Timing**: Precise real timestamp intervals (100ms = 10 FPS for sample data)
+- **Frame Rate**: Varies with data intervals (typically 10-20 FPS)
 - **Features**: 
-  - Data points with distinct colors
-  - Optional trajectory trails
-  - Connection lines between specified points
-  - Time display (relative, starting from 0.0s)
-  - Legend with custom labels
+  - Data points with distinct colors and meaningful labels
+  - Optional trajectory trails with configurable length
+  - Connection lines between specified data points
+  - Relative time display starting from 0.0s (0.1s precision)
+  - Automatic legend with custom names from label.txt
 
 ## Examples
 
 ### Sample Data Visualization
-The included sample data shows 5 data points (pioneer_1 through pioneer_5) with:
-- 0.1-second intervals (10 FPS animation)
-- Connection lines forming a network structure
-- 10+ seconds of movement data
+The included sample data demonstrates:
+- **5 data points**: `data0` through `data4` with custom labels (`pioneer_1` to `pioneer_5`)
+- **Precise timing**: 0.1-second intervals creating smooth 10 FPS animation
+- **Network structure**: Connection lines forming relationships between points
+- **10+ seconds**: Extended movement data showing complex trajectories
 
 ### Real-World Applications
-- Robot trajectory visualization
-- Multi-agent system monitoring
-- Sensor network data animation
-- Time-series scientific data presentation
+- **Robotics**: Multi-robot trajectory visualization and coordination
+- **IoT/Sensors**: Sensor network data animation with spatial relationships  
+- **Scientific**: Time-series data presentation with connection patterns
+- **Monitoring**: Multi-agent system tracking with custom labeling
+- **Research**: Any coordinate-based time series with flexible data formats
 
 ## File Structure
 
@@ -201,4 +224,17 @@ python src/plot_animator.py data/sample.csv --no-multiprocessing
 **Timing issues**: Use fixed duration instead of real timing
 ```bash
 python src/plot_animator.py data/sample.csv -d 100 --no-real-timing
+```
+
+**CSV format issues**: Ensure coordinate columns end with `_x` and `_y`
+```bash
+# Correct: data0_x, data0_y, robot_x, robot_y
+# Incorrect: data0_X, data0_Y, robot_pos_x, robot_pos_y_coord
+```
+
+**Configuration not working**: Use data names from CSV base names
+```bash
+# If CSV has robot_x, robot_y columns, use "robot" in config files
+# label.txt: robot, My Robot
+# connection.txt: robot, data0
 ```

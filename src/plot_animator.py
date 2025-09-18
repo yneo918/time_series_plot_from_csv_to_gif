@@ -25,24 +25,28 @@ class TimeSeriesAnimator:
         timestamp_col = self.data.columns[0]
         self.start_timestamp = self.data[timestamp_col].iloc[0]
         
-        # Extract data columns (all columns except timestamp)
-        all_cols = self.data.columns[1:].tolist()
+        # Extract x,y coordinate pairs from columns ending with _x and _y
+        all_cols = self.data.columns.tolist()
         
-        # Group x,y pairs
+        # Find all columns ending with _x
+        x_columns = [col for col in all_cols if col.endswith('_x')]
+        
+        # Group x,y pairs by matching base names
         self.data_columns = []
-        for i in range(0, len(all_cols), 2):
-            if i + 1 < len(all_cols):
-                x_col = all_cols[i]
-                y_col = all_cols[i + 1]
-                data_name = x_col.replace('_x', '').replace('_y', '')
+        for x_col in x_columns:
+            base_name = x_col[:-2]  # Remove '_x' suffix
+            y_col = base_name + '_y'
+            
+            if y_col in all_cols:
                 self.data_columns.append({
-                    'name': data_name,
+                    'name': base_name,
                     'x_col': x_col,
-                    'y_col': y_col,
-                    'index': i // 2  # Store the data index for label lookup
+                    'y_col': y_col
                 })
         
-        # Load connection data
+        print(f"Found coordinate pairs: {[col['name'] for col in self.data_columns]}")
+        
+        # Load connection data (supports both numeric indices and name-based)
         self.connections = []
         connection_path = self.csv_path.parent / 'connection.txt'
         if connection_path.exists():
@@ -51,9 +55,16 @@ class TimeSeriesAnimator:
                     for line in f:
                         line = line.strip()
                         if line and not line.startswith('#'):  # Skip empty lines and comments
-                            parts = [int(x.strip()) for x in line.split(',')]
+                            parts = [x.strip() for x in line.split(',')]
                             if len(parts) == 2:
-                                self.connections.append(tuple(parts))
+                                # Try to parse as integers first (backward compatibility)
+                                try:
+                                    idx1, idx2 = int(parts[0]), int(parts[1])
+                                    self.connections.append((idx1, idx2))
+                                except ValueError:
+                                    # Parse as data names
+                                    name1, name2 = parts[0], parts[1]
+                                    self.connections.append((name1, name2))
                 print(f"Loaded {len(self.connections)} connections from connection.txt")
             except Exception as e:
                 print(f"Warning: Could not load connections from {connection_path}: {e}")
@@ -62,7 +73,7 @@ class TimeSeriesAnimator:
             print(f"No connection.txt found at {connection_path}")
             self.connections = []
         
-        # Load label data
+        # Load label data (supports both numeric indices and name-based)
         self.labels = {}
         label_path = self.csv_path.parent / 'label.txt'
         if label_path.exists():
@@ -73,9 +84,16 @@ class TimeSeriesAnimator:
                         if line and not line.startswith('#'):  # Skip empty lines and comments
                             parts = [x.strip() for x in line.split(',', 1)]  # Split only on first comma
                             if len(parts) == 2:
-                                idx = int(parts[0])
-                                label = parts[1]
-                                self.labels[idx] = label
+                                # Try to parse as integer first (backward compatibility)
+                                try:
+                                    idx = int(parts[0])
+                                    label = parts[1]
+                                    self.labels[idx] = label
+                                except ValueError:
+                                    # Parse as data name
+                                    name = parts[0]
+                                    label = parts[1]
+                                    self.labels[name] = label
                 print(f"Loaded {len(self.labels)} labels from label.txt")
             except Exception as e:
                 print(f"Warning: Could not load labels from {label_path}: {e}")
@@ -85,12 +103,15 @@ class TimeSeriesAnimator:
             self.labels = {}
         
         # Update data column names with labels
-        for data_info in self.data_columns:
-            idx = data_info['index']
-            if idx in self.labels:
-                data_info['display_name'] = self.labels[idx]
+        for i, data_info in enumerate(self.data_columns):
+            name = data_info['name']
+            # Check for name-based label first, then index-based (backward compatibility)
+            if name in self.labels:
+                data_info['display_name'] = self.labels[name]
+            elif i in self.labels:
+                data_info['display_name'] = self.labels[i]
             else:
-                data_info['display_name'] = data_info['name']
+                data_info['display_name'] = name
         
         print(f"Loaded {len(self.data)} timestamps with {len(self.data_columns)} data series")
         
@@ -137,11 +158,27 @@ class TimeSeriesAnimator:
         
         # Draw connection lines between data points
         for conn in self.connections:
-            idx1, idx2 = conn
-            if idx1 < len(self.data_columns) and idx2 < len(self.data_columns):
-                data1 = self.data_columns[idx1]
-                data2 = self.data_columns[idx2]
-                
+            data1, data2 = None, None
+            
+            # Handle both numeric indices and name-based connections
+            if isinstance(conn[0], int) and isinstance(conn[1], int):
+                # Numeric indices (backward compatibility)
+                idx1, idx2 = conn
+                if idx1 < len(self.data_columns) and idx2 < len(self.data_columns):
+                    data1 = self.data_columns[idx1]
+                    data2 = self.data_columns[idx2]
+            else:
+                # Name-based connections
+                name1, name2 = conn
+                # Find data columns by name
+                for data_info in self.data_columns:
+                    if data_info['name'] == name1:
+                        data1 = data_info
+                    elif data_info['name'] == name2:
+                        data2 = data_info
+            
+            # Draw line if both data points found
+            if data1 and data2:
                 x1 = row[data1['x_col']]
                 y1 = row[data1['y_col']]
                 x2 = row[data2['x_col']]
@@ -257,11 +294,27 @@ class TimeSeriesAnimator:
         
         # Draw connection lines between data points
         for conn in self.connections:
-            idx1, idx2 = conn
-            if idx1 < len(self.data_columns) and idx2 < len(self.data_columns):
-                data1 = self.data_columns[idx1]
-                data2 = self.data_columns[idx2]
-                
+            data1, data2 = None, None
+            
+            # Handle both numeric indices and name-based connections
+            if isinstance(conn[0], int) and isinstance(conn[1], int):
+                # Numeric indices (backward compatibility)
+                idx1, idx2 = conn
+                if idx1 < len(self.data_columns) and idx2 < len(self.data_columns):
+                    data1 = self.data_columns[idx1]
+                    data2 = self.data_columns[idx2]
+            else:
+                # Name-based connections
+                name1, name2 = conn
+                # Find data columns by name
+                for data_info in self.data_columns:
+                    if data_info['name'] == name1:
+                        data1 = data_info
+                    elif data_info['name'] == name2:
+                        data2 = data_info
+            
+            # Draw line if both data points found
+            if data1 and data2:
                 x1 = row[data1['x_col']]
                 y1 = row[data1['y_col']]
                 x2 = row[data2['x_col']]
