@@ -1,5 +1,3 @@
-data0, pioneer_1
-data1, pioneer_2
-data2, pioneer_3
-data3, pioneer_4
-data4, pioneer_5
+/p1/pose2D., pioneer_1
+/p2/pose2D., pioneer_2
+/p3/pose2D., pioneer_3

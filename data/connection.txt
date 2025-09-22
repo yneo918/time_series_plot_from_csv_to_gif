@@ -1,4 +1,2 @@
-data0, data1
-data0, data2
-data1, data3
-data2, data4
+/p1/pose2D., /p2/pose2D.
+/p1/pose2D., /p3/pose2D.

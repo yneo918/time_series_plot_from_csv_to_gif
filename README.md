@@ -1,18 +1,23 @@
 # Time Series Plot Animation Tool
 
-A Python tool for creating animated GIF visualizations from time series CSV data. Generate x-y plots that animate over time, showing data point movements and optional trajectories.
+A Python tool for creating animated GIF visualizations from time series CSV data. Generate x-y plots that animate over time, showing data point movements and optional trajectories with advanced memory optimization and frame saving capabilities.
 
 ## Features
 
 - 📊 **Time Series Animation**: Convert CSV data to animated GIF plots
 - ⏱️ **Real Timing**: Animation speed matches actual timestamp intervals (precise 100ms = 10 FPS)
-- 🚀 **Performance Optimized**: Multiprocessing support for faster generation
+- 🚀 **Performance Optimized**: Unlimited parallel processing with memory-efficient frame saving
+- 💾 **Frame Saving**: Save individual PNG frames for large datasets and memory efficiency
 - 🎯 **Trajectory Display**: Optional trajectory trails with configurable length
 - 🔗 **Connection Lines**: Draw lines between data points based on configuration
 - 🏷️ **Custom Labels**: Use meaningful names for data points
 - 📋 **Flexible CSV Format**: Automatic detection of XXX_x, XXX_y coordinate pairs
 - 🔧 **Name-Based Configuration**: Use data names instead of indices in config files
 - ⚙️ **Comprehensive Options**: Full command-line interface with performance tuning
+- 🧠 **Memory Optimization**: Configurable figure size, DPI, and batch processing for large datasets
+- 📈 **Progress Tracking**: Real-time progress bars for both sequential and parallel processing
+- 🕒 **Unix Timestamp Support**: Automatic detection of nanoseconds, microseconds, milliseconds, and seconds
+- 🎛️ **Data Selection**: Choose specific data series using name.txt configuration
 
 ## Installation
 
@@ -24,8 +29,15 @@ cd time_series_plot_from_csv_to_gif
 
 2. Install dependencies:
 ```bash
-pip install -r requirements.txt
+pip install pandas matplotlib numpy pillow
 ```
+
+**Requirements:**
+- Python 3.8+
+- NumPy 2.x (compatible with latest versions)
+- matplotlib 3.x
+- pandas 2.x
+- Pillow 10.x+
 
 ## Quick Start
 
@@ -51,10 +63,16 @@ timestamp,data0_x,data0_y,data1_x,data1_y,robot_x,robot_y,sensor1_x,sensor1_y,..
 ```
 
 **Requirements:**
-- **First column**: Timestamp in nanoseconds
+- **First column**: Timestamp (auto-detects nanoseconds, microseconds, milliseconds, or seconds)
 - **Coordinate pairs**: Any columns ending with `_x` and `_y` with matching base names
 - **Mixed data**: Other columns are ignored - only `XXX_x`, `XXX_y` pairs are processed
 - **Flexible naming**: Use meaningful names like `robot_x`, `robot_y` or `sensor1_x`, `sensor1_y`
+
+**Timestamp Format Support:**
+- **Nanoseconds**: `1756717200000000000` (19 digits)
+- **Microseconds**: `1756717200000000` (16 digits)
+- **Milliseconds**: `1756717200000` (13 digits)
+- **Seconds**: `1756717200.123` (decimal precision supported)
 
 **Examples of valid coordinate pairs:**
 - `data0_x`, `data0_y` → Base name: `data0`
@@ -93,6 +111,16 @@ data0, robot
 0, 2
 ```
 
+#### `data/name.txt` (Optional)
+Select specific data series to process:
+```
+data0
+robot
+sensor1
+```
+**Format:** One data name per line (base names without `_x`, `_y` suffixes)
+**Purpose:** Process only selected data series instead of all available coordinate pairs
+
 ## Usage
 
 ### Basic Usage
@@ -111,17 +139,41 @@ python src/plot_animator.py data/sample.csv -d 100
 # Enable trajectory display
 python src/plot_animator.py data/sample.csv --show-trajectory --trajectory-length 30
 
-# Performance options
+# Performance and memory options
 python src/plot_animator.py data/sample.csv --workers 4
 python src/plot_animator.py data/sample.csv --no-multiprocessing
+
+# Memory optimization for large datasets
+python src/plot_animator.py data/sample.csv --save-frames --dpi 60 --figure-width 8 --figure-height 6
+
+# Data selection and processing
+python src/plot_animator.py data/sample.csv --use-name-file
+python src/plot_animator.py data/sample.csv --force-sequential
 ```
+
+### Frame Saving Feature
+For large datasets (1000+ frames), use the `--save-frames` option:
+
+```bash
+# Save individual PNG frames and create GIF
+python src/plot_animator.py large_data.csv --save-frames
+
+# Optimize for memory usage
+python src/plot_animator.py large_data.csv --save-frames --dpi 40 --figure-width 6 --figure-height 4
+```
+
+**Benefits:**
+- **Unlimited parallel processing**: No memory constraints for large datasets
+- **Individual frames saved**: Each frame saved as `output/frames_CSVNAME/frame_XXXXXX.png`
+- **Memory efficient**: Frames not kept in memory during processing
+- **Progress tracking**: Real-time progress for both frame generation and GIF creation
 
 ### Command Line Options
 
 | Option | Description | Default |
 |--------|-------------|---------|
 | `csv_file` | Path to input CSV file | Required |
-| `-o, --output` | Output GIF filename | `animation.gif` |
+| `-o, --output` | Output GIF filename | `{CSV_filename}.gif` |
 | `-d, --duration` | Fixed frame duration in ms | Auto (real timing) |
 | `--output-dir` | Output directory | `output` |
 | `--show-trajectory` | Show trajectory trails | Off |
@@ -129,20 +181,36 @@ python src/plot_animator.py data/sample.csv --no-multiprocessing
 | `--no-real-timing` | Disable real timestamp timing | Off |
 | `--no-multiprocessing` | Disable parallel processing | Off |
 | `--workers` | Number of worker processes | Auto |
+| `--use-name-file` | Use data/name.txt for data selection | Off |
+| `--force-sequential` | Force sequential processing | Off |
+| `--save-frames` | Save individual PNG frames | Off |
+| `--figure-width` | Figure width in inches | 10 |
+| `--figure-height` | Figure height in inches | 8 |
+| `--dpi` | Figure DPI (lower = less memory) | 80 |
 
 ## Performance
 
-The tool includes several optimizations for faster generation:
+The tool includes several optimizations for faster generation and memory efficiency:
 
-- **Multiprocessing**: Parallel frame generation (default for >10 frames)
-- **Optimized Rendering**: Reduced resolution and efficient matplotlib backend
+- **Unlimited Multiprocessing**: Parallel frame generation with `--save-frames` option (no memory limits)
+- **Memory-Efficient Processing**: Configurable figure size and DPI for memory optimization
+- **Batch Processing**: Intelligent chunking for large datasets to prevent "too many open files" errors
+- **Optimized Rendering**: Efficient matplotlib backend with minimal styling
 - **Trajectory Limiting**: Configurable trail length to reduce computation
-- **Smart Timing**: Real timestamp intervals with minimum duration limits
+- **Smart Timing**: Real timestamp intervals with high-precision arithmetic
+- **Progress Tracking**: Real-time progress bars with ETA calculation
 
 ### Performance Comparison
-- Small datasets (<10 frames): Sequential processing
-- Large datasets (>10 frames): Up to 4x speedup with multiprocessing
-- Trajectory disabled: Significantly faster generation
+- **Small datasets** (<10 frames): Sequential processing
+- **Medium datasets** (10-1000 frames): Up to 4x speedup with standard multiprocessing
+- **Large datasets** (1000+ frames): Unlimited parallel processing with `--save-frames`
+- **Very large datasets** (5000+ frames): Memory-optimized processing with frame saving
+- **Trajectory disabled**: Significantly faster generation
+
+### Memory Usage
+- **Default**: ~800MB for 1000 frames (10×8 inches, 80 DPI)
+- **Optimized**: ~200MB for 1000 frames (6×4 inches, 40 DPI, `--save-frames`)
+- **Large datasets**: Constant memory usage with `--save-frames` option
 
 ## Output
 
@@ -179,21 +247,25 @@ time_series_plot_from_csv_to_gif/
 ├── data/
 │   ├── sample.csv          # Sample time series data
 │   ├── connection.txt      # Connection definitions
-│   └── label.txt          # Data point labels
+│   ├── label.txt          # Data point labels
+│   └── name.txt           # Data selection configuration
 ├── src/
 │   ├── plot_animator.py   # Main animation tool
 │   └── example.py         # Usage examples
 ├── output/                # Generated animations (gitignored)
-├── requirements.txt       # Python dependencies
+│   ├── *.gif              # Generated GIF animations
+│   └── frames_*/          # Individual frame directories (with --save-frames)
 └── README.md             # This file
 ```
 
 ## Dependencies
 
-- **pandas**: CSV data processing
-- **matplotlib**: Plot generation
-- **numpy**: Numerical operations
+- **pandas**: CSV data processing and timestamp handling
+- **matplotlib**: Plot generation and rendering
+- **numpy**: Numerical operations (NumPy 2.x compatible)
 - **Pillow**: Image processing and GIF creation
+- **multiprocessing**: Parallel frame generation (built-in)
+- **pathlib**: File system operations (built-in)
 
 ## License
 
@@ -211,20 +283,29 @@ MIT License - see LICENSE file for details.
 
 ### Common Issues
 
-**Slow generation**: Enable multiprocessing and reduce trajectory length
+**Slow generation**: Enable frame saving for large datasets
 ```bash
-python src/plot_animator.py data/sample.csv --trajectory-length 20
+python src/plot_animator.py data/sample.csv --save-frames --trajectory-length 20
 ```
 
-**Memory issues**: Disable trajectory or use sequential processing
+**Memory issues (large datasets)**: Use frame saving with memory optimization
 ```bash
-python src/plot_animator.py data/sample.csv --no-multiprocessing
+python src/plot_animator.py data/sample.csv --save-frames --dpi 40 --figure-width 6 --figure-height 4
 ```
 
-**Timing issues**: Use fixed duration instead of real timing
+**System hangs with very large datasets**: Force sequential processing with frame saving
 ```bash
-python src/plot_animator.py data/sample.csv -d 100 --no-real-timing
+python src/plot_animator.py data/sample.csv --save-frames --force-sequential
 ```
+
+**"Too many open files" error**: This is automatically handled with batch processing in newer versions
+
+**BrokenPipeError in multiprocessing**: Use `--save-frames` option to eliminate inter-process communication
+```bash
+python src/plot_animator.py data/sample.csv --save-frames
+```
+
+**Timing precision issues**: Automatic high-precision arithmetic is used for seconds format timestamps
 
 **CSV format issues**: Ensure coordinate columns end with `_x` and `_y`
 ```bash
@@ -237,4 +318,24 @@ python src/plot_animator.py data/sample.csv -d 100 --no-real-timing
 # If CSV has robot_x, robot_y columns, use "robot" in config files
 # label.txt: robot, My Robot
 # connection.txt: robot, data0
+# name.txt: robot
+```
+
+**NumPy compatibility**: Tool is compatible with NumPy 2.x (automatic detection)
+
+### Performance Tips
+
+**For datasets with 1000+ frames**:
+```bash
+python src/plot_animator.py large_data.csv --save-frames --dpi 60
+```
+
+**For datasets with 5000+ frames**:
+```bash
+python src/plot_animator.py huge_data.csv --save-frames --dpi 40 --figure-width 6 --figure-height 4 --force-sequential
+```
+
+**To reduce GIF file size**:
+```bash
+python src/plot_animator.py data.csv --dpi 50 --figure-width 8 --figure-height 6
 ```

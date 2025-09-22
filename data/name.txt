@@ -1,0 +1,3 @@
+/p1/pose2D.
+/p2/pose2D.
+/p3/pose2D.
