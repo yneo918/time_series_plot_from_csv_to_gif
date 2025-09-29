@@ -358,7 +358,7 @@ class TimeSeriesAnimator:
         print(f"Total frames: {len(self.data)}, Duration array length: {len(durations_ms)}")
         return durations_ms.tolist()
     
-    def create_frame_data(self, timestamp_idx, ax_limits=None, show_trajectory=False, trajectory_length=50, save_frames=False, frame_dir=None):
+    def create_frame_data(self, timestamp_idx, ax_limits=None, show_trajectory=False, trajectory_length=50, save_frames=False, frame_dir=None, show_time=True):
         """Create frame data without matplotlib display - optimized for speed"""
         # Pre-calculate axis limits once if not provided
         if ax_limits is None:
@@ -442,7 +442,10 @@ class TimeSeriesAnimator:
         # Set plot properties with minimal styling
         ax.set_xlabel('X', fontsize=8)
         ax.set_ylabel('Y', fontsize=8)
-        ax.set_title(f'Time: {timestamp_display}', fontsize=9)  # Shorter title
+        if show_time:
+            ax.set_title(f'Time: {timestamp_display}', fontsize=9)  # Show time if enabled
+        else:
+            ax.set_title('Time Series Plot', fontsize=9)  # Generic title without time
         ax.legend(fontsize=6, loc='upper right')  # Smaller font and fixed location
         ax.grid(True, alpha=0.2, linewidth=0.5)  # Thinner grid
         ax.set_xlim(ax_limits['x'])
@@ -474,7 +477,7 @@ class TimeSeriesAnimator:
 
     def create_gif(self, output_filename="animation.gif", duration=None, ax_limits=None,
                    use_real_timing=True, use_multiprocessing=True, max_workers=None,
-                   show_trajectory=False, trajectory_length=50, save_frames=False):
+                   show_trajectory=False, trajectory_length=50, save_frames=False, show_time=True):
         """Create animated GIF from all timestamps with performance optimizations"""
         print(f"Creating {len(self.data)} frames...")
         if show_trajectory:
@@ -525,7 +528,8 @@ class TimeSeriesAnimator:
                                          show_trajectory=show_trajectory,
                                          trajectory_length=trajectory_length,
                                          save_frames=save_frames,
-                                         frame_dir=frame_dir)
+                                         frame_dir=frame_dir,
+                                         show_time=show_time)
 
             # Use imap with chunking for better memory management
             chunksize = max(1, len(self.data) // (max_workers * 4))
@@ -544,7 +548,7 @@ class TimeSeriesAnimator:
             print(f"Large dataset detected ({len(self.data)} frames). Using sequential processing to avoid memory issues.")
             frames = []
             for i in range(len(self.data)):
-                frame = self.create_frame_data(i, ax_limits, show_trajectory, trajectory_length, save_frames, frame_dir)
+                frame = self.create_frame_data(i, ax_limits, show_trajectory, trajectory_length, save_frames, frame_dir, show_time)
                 frames.append(frame)
                 # Update progress every frame for large datasets
                 self.print_progress(i + 1, len(self.data), start_time, "Creating frames")
@@ -552,7 +556,7 @@ class TimeSeriesAnimator:
             # Sequential processing with progress bar
             frames = []
             for i in range(len(self.data)):
-                frame = self.create_frame_data(i, ax_limits, show_trajectory, trajectory_length, save_frames, frame_dir)
+                frame = self.create_frame_data(i, ax_limits, show_trajectory, trajectory_length, save_frames, frame_dir, show_time)
                 if not save_frames:  # Only keep in memory if not saving to files
                     frames.append(frame)
 
@@ -651,9 +655,9 @@ class TimeSeriesAnimator:
         else:
             raise ValueError("No frames could be loaded successfully")
 
-    def _create_frame_worker(self, timestamp_idx, ax_limits, show_trajectory=False, trajectory_length=50, save_frames=False, frame_dir=None):
+    def _create_frame_worker(self, timestamp_idx, ax_limits, show_trajectory=False, trajectory_length=50, save_frames=False, frame_dir=None, show_time=True):
         """Worker function for multiprocessing"""
-        return self.create_frame_data(timestamp_idx, ax_limits, show_trajectory, trajectory_length, save_frames, frame_dir)
+        return self.create_frame_data(timestamp_idx, ax_limits, show_trajectory, trajectory_length, save_frames, frame_dir, show_time)
 
 
 def main():
@@ -673,6 +677,7 @@ def main():
     parser.add_argument('--figure-height', type=float, default=8, help='Figure height in inches (default: 8)')
     parser.add_argument('--dpi', type=int, default=80, help='Figure DPI for output resolution (default: 80, lower = less memory)')
     parser.add_argument('--save-frames', action='store_true', help='Save individual frame images to output/frames/ directory')
+    parser.add_argument('--no-time-display', action='store_true', help='Hide time display in frame titles')
 
     args = parser.parse_args()
 
@@ -697,7 +702,7 @@ def main():
     animator.create_gif(args.output, duration, use_real_timing=use_real_timing,
                        use_multiprocessing=use_multiprocessing, max_workers=args.workers,
                        show_trajectory=args.show_trajectory, trajectory_length=args.trajectory_length,
-                       save_frames=args.save_frames)
+                       save_frames=args.save_frames, show_time=not args.no_time_display)
 
 
 if __name__ == "__main__":
