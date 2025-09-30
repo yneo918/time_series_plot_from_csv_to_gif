@@ -91,6 +91,10 @@ class TimeSeriesAnimator:
         """Load CSV data and extract data columns"""
         self.data = pd.read_csv(self.csv_path)
 
+        # Check if CSV is empty
+        if self.data.empty:
+            raise ValueError(f"CSV file is empty: {self.csv_path}")
+
         # Detect timestamp format and convert to nanoseconds
         timestamp_col = self.data.columns[0]
         self.timestamp_factor, self.timestamp_unit = self.detect_timestamp_format(timestamp_col)
@@ -135,11 +139,41 @@ class TimeSeriesAnimator:
                         'y_col': y_col
                     })
 
+        # Check if no data columns were found
+        if not self.data_columns:
+            raise ValueError(f"No valid x,y coordinate pairs found in CSV. "
+                           f"Columns must end with '_x' and '_y' (e.g., 'data1_x', 'data1_y')")
+
+        # Validate data: remove rows with NaN and Inf values
+        original_row_count = len(self.data)
+
+        # Create a mask for valid rows (no NaN or Inf in any data column)
+        valid_mask = pd.Series([True] * len(self.data))
+
+        for data_info in self.data_columns:
+            x_col = data_info['x_col']
+            y_col = data_info['y_col']
+
+            # Mark rows with NaN or Inf as invalid
+            valid_mask &= ~(self.data[x_col].isna() | self.data[y_col].isna() |
+                           np.isinf(self.data[x_col]) | np.isinf(self.data[y_col]))
+
+        # Filter out invalid rows
+        self.data = self.data[valid_mask].reset_index(drop=True)
+
+        skipped_rows = original_row_count - len(self.data)
+        if skipped_rows > 0:
+            print(f"Warning: Skipped {skipped_rows} rows with NaN or Inf values ({len(self.data)} valid rows remaining)")
+
+        # Check if all rows were invalid
+        if len(self.data) == 0:
+            raise ValueError(f"All rows contain NaN or Inf values. No valid data to process.")
+
         if selected_names:
             print(f"Using selected data: {[col['name'] for col in self.data_columns]} (from {len(selected_names)} specified)")
         else:
             print(f"Found coordinate pairs: {[col['name'] for col in self.data_columns]}")
-        
+
         # Load connection data (supports both numeric indices and name-based)
         self.connections = []
         connection_path = self.csv_path.parent / 'connection.txt'
@@ -686,23 +720,31 @@ def main():
         csv_path = Path(args.csv_file)
         args.output = f"{csv_path.stem}.gif"
 
-    # Create animator with configurable figure size and DPI
-    figure_size = (args.figure_width, args.figure_height)
-    animator = TimeSeriesAnimator(args.csv_file, args.output_dir, args.use_name_file,
-                                figure_size=figure_size, dpi=args.dpi)
-    
-    # Load data and create animation
-    animator.load_data()
-    
-    # Determine timing mode
-    use_real_timing = not args.no_real_timing and args.duration is None
-    duration = args.duration if args.duration is not None else 200
-    use_multiprocessing = not args.no_multiprocessing and not args.force_sequential
-    
-    animator.create_gif(args.output, duration, use_real_timing=use_real_timing,
-                       use_multiprocessing=use_multiprocessing, max_workers=args.workers,
-                       show_trajectory=args.show_trajectory, trajectory_length=args.trajectory_length,
-                       save_frames=args.save_frames, show_time=not args.no_time_display)
+    try:
+        # Create animator with configurable figure size and DPI
+        figure_size = (args.figure_width, args.figure_height)
+        animator = TimeSeriesAnimator(args.csv_file, args.output_dir, args.use_name_file,
+                                    figure_size=figure_size, dpi=args.dpi)
+
+        # Load data and create animation
+        animator.load_data()
+
+        # Determine timing mode
+        use_real_timing = not args.no_real_timing and args.duration is None
+        duration = args.duration if args.duration is not None else 200
+        use_multiprocessing = not args.no_multiprocessing and not args.force_sequential
+
+        animator.create_gif(args.output, duration, use_real_timing=use_real_timing,
+                           use_multiprocessing=use_multiprocessing, max_workers=args.workers,
+                           show_trajectory=args.show_trajectory, trajectory_length=args.trajectory_length,
+                           save_frames=args.save_frames, show_time=not args.no_time_display)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        print(f"Skipping file: {args.csv_file}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Unexpected error: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
