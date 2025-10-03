@@ -22,6 +22,8 @@ class TimeSeriesAnimator:
         self.dpi = dpi
         self.data = None
         self.data_columns = []
+        self.x_unit = None
+        self.y_unit = None
         
     def load_selected_names(self):
         """Load selected data names from data/name.txt if use_name_file is True"""
@@ -229,7 +231,30 @@ class TimeSeriesAnimator:
         else:
             print(f"No label.txt found at {label_path}")
             self.labels = {}
-        
+
+        # Load unit configuration
+        unit_path = self.csv_path.parent / 'unit.txt'
+        if unit_path.exists():
+            try:
+                with open(unit_path, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith('#'):  # Skip empty lines and comments
+                            parts = [x.strip() for x in line.split(',')]
+                            if len(parts) == 2:
+                                axis = parts[0].lower()
+                                unit = parts[1]
+                                if axis == 'x':
+                                    self.x_unit = unit
+                                elif axis == 'y':
+                                    self.y_unit = unit
+                if self.x_unit or self.y_unit:
+                    print(f"Loaded axis units: X={self.x_unit or 'None'}, Y={self.y_unit or 'None'}")
+            except Exception as e:
+                print(f"Warning: Could not load units from {unit_path}: {e}")
+                self.x_unit = None
+                self.y_unit = None
+
         # Update data column names with labels
         for i, data_info in enumerate(self.data_columns):
             name = data_info['name']
@@ -474,8 +499,10 @@ class TimeSeriesAnimator:
                 ax.plot([x1, x2], [y1, y2], 'k-', alpha=0.6, linewidth=1.5, zorder=0)
         
         # Set plot properties with minimal styling
-        ax.set_xlabel('X', fontsize=8)
-        ax.set_ylabel('Y', fontsize=8)
+        x_label = f'X ({self.x_unit})' if self.x_unit else 'X'
+        y_label = f'Y ({self.y_unit})' if self.y_unit else 'Y'
+        ax.set_xlabel(x_label, fontsize=8)
+        ax.set_ylabel(y_label, fontsize=8)
         if show_time:
             ax.set_title(f'Time: {timestamp_display}', fontsize=9)  # Show time if enabled
         else:

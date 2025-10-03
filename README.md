@@ -11,6 +11,7 @@ A Python tool for creating animated GIF visualizations from time series CSV data
 - 🎯 **Trajectory Display**: Optional trajectory trails with configurable length
 - 🔗 **Connection Lines**: Draw lines between data points based on configuration
 - 🏷️ **Custom Labels**: Use meaningful names for data points
+- 📐 **Axis Units**: Configure axis labels via optional unit definitions
 - 📋 **Flexible CSV Format**: Automatic detection of XXX_x, XXX_y coordinate pairs
 - 🔧 **Name-Based Configuration**: Use data names instead of indices in config files
 - ⚙️ **Comprehensive Options**: Full command-line interface with performance tuning
@@ -120,6 +121,16 @@ sensor1
 ```
 **Format:** One data name per line (base names without `_x`, `_y` suffixes)
 **Purpose:** Process only selected data series instead of all available coordinate pairs
+
+#### `data/unit.txt` (Optional)
+Define axis unit labels displayed in the plot:
+```
+x, m
+y, m
+```
+**Format:** `axis, unit` where `axis` is `x` or `y` (case-insensitive)
+**Comments:** Lines beginning with `#` or blank lines are ignored
+**Effect:** Axis labels appear as `X (m)` or `Y (m)` when units are provided
 
 ## Usage
 
