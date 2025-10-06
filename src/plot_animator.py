@@ -13,13 +13,14 @@ import sys
 
 class TimeSeriesAnimator:
     def __init__(self, csv_path, output_dir="output", use_name_file=False,
-                 figure_size=(10, 8), dpi=80):
+                 figure_size=(10, 8), dpi=80, font_scale=1.0):
         self.csv_path = Path(csv_path)
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
         self.use_name_file = use_name_file
         self.figure_size = figure_size
         self.dpi = dpi
+        self.font_scale = font_scale
         self.data = None
         self.data_columns = []
         self.x_unit = None
@@ -205,6 +206,7 @@ class TimeSeriesAnimator:
         
         # Load label data (supports both numeric indices and name-based)
         self.labels = {}
+        self.label_order = []  # Track order of labels from label.txt
         label_path = self.csv_path.parent / 'label.txt'
         if label_path.exists():
             try:
@@ -219,18 +221,22 @@ class TimeSeriesAnimator:
                                     idx = int(parts[0])
                                     label = parts[1]
                                     self.labels[idx] = label
+                                    self.label_order.append(idx)
                                 except ValueError:
                                     # Parse as data name
                                     name = parts[0]
                                     label = parts[1]
                                     self.labels[name] = label
+                                    self.label_order.append(name)
                 print(f"Loaded {len(self.labels)} labels from label.txt")
             except Exception as e:
                 print(f"Warning: Could not load labels from {label_path}: {e}")
                 self.labels = {}
+                self.label_order = []
         else:
             print(f"No label.txt found at {label_path}")
             self.labels = {}
+            self.label_order = []
 
         # Load unit configuration
         unit_path = self.csv_path.parent / 'unit.txt'
@@ -255,7 +261,7 @@ class TimeSeriesAnimator:
                 self.x_unit = None
                 self.y_unit = None
 
-        # Update data column names with labels
+        # Update data column names with labels and sort by label order
         for i, data_info in enumerate(self.data_columns):
             name = data_info['name']
             # Check for name-based label first, then index-based (backward compatibility)
@@ -265,7 +271,20 @@ class TimeSeriesAnimator:
                 data_info['display_name'] = self.labels[i]
             else:
                 data_info['display_name'] = name
-        
+
+        # Sort data_columns according to label.txt order if available
+        if self.label_order:
+            def get_sort_key(data_info):
+                name = data_info['name']
+                # Find position in label_order (name-based or index-based)
+                for idx, label_key in enumerate(self.label_order):
+                    if label_key == name or (isinstance(label_key, int) and label_key == self.data_columns.index(data_info)):
+                        return idx
+                # If not in label_order, put at the end
+                return len(self.label_order)
+
+            self.data_columns.sort(key=get_sort_key)
+
         print(f"Loaded {len(self.data)} timestamps with {len(self.data_columns)} data series")
         
     def format_timestamp(self, timestamp_ns):
@@ -498,20 +517,20 @@ class TimeSeriesAnimator:
                 
                 ax.plot([x1, x2], [y1, y2], 'k-', alpha=0.6, linewidth=1.5, zorder=0)
         
-        # Set plot properties with minimal styling
+        # Set plot properties with configurable font sizes
         x_label = f'X ({self.x_unit})' if self.x_unit else 'X'
         y_label = f'Y ({self.y_unit})' if self.y_unit else 'Y'
-        ax.set_xlabel(x_label, fontsize=8)
-        ax.set_ylabel(y_label, fontsize=8)
+        ax.set_xlabel(x_label, fontsize=int(16 * self.font_scale))
+        ax.set_ylabel(y_label, fontsize=int(16 * self.font_scale))
         if show_time:
-            ax.set_title(f'Time: {timestamp_display}', fontsize=9)  # Show time if enabled
+            ax.set_title(f'Time: {timestamp_display}', fontsize=int(18 * self.font_scale))  # Show time if enabled
         else:
-            ax.set_title('Time Series Plot', fontsize=9)  # Generic title without time
-        ax.legend(fontsize=6, loc='upper right')  # Smaller font and fixed location
+            ax.set_title('Time Series Plot', fontsize=int(18 * self.font_scale))  # Generic title without time
+        ax.legend(fontsize=int(12 * self.font_scale), loc='upper right')  # Configurable legend font
         ax.grid(True, alpha=0.2, linewidth=0.5)  # Thinner grid
         ax.set_xlim(ax_limits['x'])
         ax.set_ylim(ax_limits['y'])
-        ax.tick_params(labelsize=6)  # Smaller tick labels
+        ax.tick_params(labelsize=int(12 * self.font_scale))  # Configurable tick labels
 
         # Convert to PIL Image with maximum compression
         buf = io.BytesIO()
@@ -739,6 +758,7 @@ def main():
     parser.add_argument('--dpi', type=int, default=80, help='Figure DPI for output resolution (default: 80, lower = less memory)')
     parser.add_argument('--save-frames', action='store_true', help='Save individual frame images to output/frames/ directory')
     parser.add_argument('--no-time-display', action='store_true', help='Hide time display in frame titles')
+    parser.add_argument('--font-scale', type=float, default=1.0, help='Font size scale factor (default: 1.0, larger values = bigger fonts)')
 
     args = parser.parse_args()
 
@@ -748,10 +768,10 @@ def main():
         args.output = f"{csv_path.stem}.gif"
 
     try:
-        # Create animator with configurable figure size and DPI
+        # Create animator with configurable figure size, DPI, and font scale
         figure_size = (args.figure_width, args.figure_height)
         animator = TimeSeriesAnimator(args.csv_file, args.output_dir, args.use_name_file,
-                                    figure_size=figure_size, dpi=args.dpi)
+                                    figure_size=figure_size, dpi=args.dpi, font_scale=args.font_scale)
 
         # Load data and create animation
         animator.load_data()

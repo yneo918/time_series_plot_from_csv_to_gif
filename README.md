@@ -11,8 +11,10 @@ A Python tool for creating animated GIF visualizations from time series CSV data
 - 🎯 **Trajectory Display**: Optional trajectory trails with configurable length
 - 🔗 **Connection Lines**: Draw lines between data points based on configuration
 - 🏷️ **Custom Labels**: Use meaningful names for data points
-- 📐 **Axis Units**: Configure axis labels via optional unit definitions
+- 📐 **Axis Units**: Configure axis labels via optional unit definitions (e.g., X (m), Y (m))
+- 🔤 **Font Customization**: Adjustable font sizes with `--font-scale` option
 - 📋 **Flexible CSV Format**: Automatic detection of XXX_x, XXX_y coordinate pairs
+- ⚠️ **Robust Error Handling**: Automatic skipping of invalid data (NaN/Inf values)
 - 🔧 **Name-Based Configuration**: Use data names instead of indices in config files
 - ⚙️ **Comprehensive Options**: Full command-line interface with performance tuning
 - 🧠 **Memory Optimization**: Configurable figure size, DPI, and batch processing for large datasets
@@ -90,6 +92,7 @@ robot, Main Robot
 sensor1, Temperature Sensor
 ```
 **Format:** `data_name, display_label`
+**Legend Order:** The order of labels in this file determines the legend display order
 
 **Backward compatibility:** Numeric indices still supported:
 ```
@@ -150,6 +153,9 @@ python src/plot_animator.py data/sample.csv -d 100
 # Enable trajectory display
 python src/plot_animator.py data/sample.csv --show-trajectory --trajectory-length 30
 
+# Customize font size and hide time display
+python src/plot_animator.py data/sample.csv --font-scale 1.5 --no-time-display
+
 # Performance and memory options
 python src/plot_animator.py data/sample.csv --workers 4
 python src/plot_animator.py data/sample.csv --no-multiprocessing
@@ -198,6 +204,8 @@ python src/plot_animator.py large_data.csv --save-frames --dpi 40 --figure-width
 | `--figure-width` | Figure width in inches | 10 |
 | `--figure-height` | Figure height in inches | 8 |
 | `--dpi` | Figure DPI (lower = less memory) | 80 |
+| `--font-scale` | Font size scale factor | 1.0 |
+| `--no-time-display` | Hide time stamps in frame titles | Off |
 
 ## Performance
 
@@ -322,6 +330,18 @@ python src/plot_animator.py data/sample.csv --save-frames
 ```bash
 # Correct: data0_x, data0_y, robot_x, robot_y
 # Incorrect: data0_X, data0_Y, robot_pos_x, robot_pos_y_coord
+```
+
+**Invalid data (NaN/Inf values)**: Rows with invalid data are automatically skipped
+```bash
+# The tool will display: "Warning: Skipped N rows with NaN or Inf values (M valid rows remaining)"
+# Processing continues with valid data only
+```
+
+**Empty CSV or no valid columns**: Clear error messages guide you to fix the data format
+```bash
+# "Error: CSV file is empty"
+# "Error: No valid x,y coordinate pairs found in CSV"
 ```
 
 **Configuration not working**: Use data names from CSV base names

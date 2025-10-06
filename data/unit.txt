@@ -1,0 +1,8 @@
+# Axis unit configuration
+# Format: axis, unit
+# Example:
+# x, m
+# y, m
+
+x, m
+y, m
